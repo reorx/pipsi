@@ -542,13 +542,13 @@ def list_cmd(repo, versions):
                               if scripts]
     if list_of_non_empty_venv:
         click.echo('Packages and scripts installed through pipsi:')
-        for venv, (scripts, version) in repo.list_everything(versions):
+        for venv, (scripts, version) in list_of_non_empty_venv:
             if versions:
                 click.echo('  Package "%s" (%s):' % (venv, version or 'unknown'))
             else:
                 click.echo('  Package "%s":' % venv)
-                for script in scripts:
-                    click.echo('    ' + script)
+            for script in scripts:
+                click.echo('    ' + script)
     else:
         click.echo('There are no scripts installed through pipsi')
 

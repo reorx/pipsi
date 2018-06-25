@@ -95,7 +95,12 @@ def install_files(venv, bin_dir, install):
         _cleanup()
         fail('Could not create virtualenv for pipsi :(')
 
-    if call([venv + PIP, 'install', install]) != 0:
+    install_cmd = [venv + PIP, 'install']
+    # add -e, --editable for installing from current directory, for dev purpose only
+    if install == '.':
+        install_cmd.append('-e')
+    install_cmd.append(install)
+    if call(install_cmd) != 0:
         _cleanup()
         fail('Could not install pipsi :(')
 

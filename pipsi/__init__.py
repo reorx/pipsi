@@ -18,6 +18,7 @@ try:
         kw.update(stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         r = subprocess.run(*args, **kw)
         r.stdout, r.stderr = map(proc_output, (r.stdout, r.stderr))
+        debugp('[run] argv={} code={} stdout={} stderr={}'.format(args, r.returncode, r.stdout, r.stderr))
         return r
 except AttributeError:  # no `subprocess.run`, py < 3.5
     CompletedProcess = namedtuple('CompletedProcess',
@@ -27,7 +28,9 @@ except AttributeError:  # no `subprocess.run`, py < 3.5
         p = subprocess.Popen(
             argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kw)
         out, err = map(proc_output, p.communicate())
-        return CompletedProcess(argv, p.returncode, out, err)
+        cp = CompletedProcess(argv, p.returncode, out, err)
+        debugp('[run] argv={} code={} stdout={} stderr={}'.format(argv, p.returncode, out, err))
+        return cp
 try:
     from urlparse import urlparse
 except ImportError:

@@ -9,3 +9,4 @@ build
 .env/
 .cache/
 .pytest_cache/
+Pipfile

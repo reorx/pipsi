@@ -391,22 +391,29 @@ class Repo(object):
             return _cleanup()
         return True
 
+    def check_package_installed(self, package, venv_path, echo=False):
+        if not os.path.isdir(venv_path):
+            if echo:
+                click.echo('%s is not installed' % package)
+            return False
+        return True
+
     def uninstall(self, package):
         path = self.get_package_path(package)
-        info = self.get_package_info(path)
-        if not os.path.isdir(path):
+        if not self.check_package_installed(package, path):
             return UninstallInfo(package, installed=False)
-        paths = [path]
-        paths.extend(info.get('scripts', []))
+
+        info = self.get_package_info(path)
+        paths = [path] + info.get('scripts', [])
         return UninstallInfo(package, paths)
 
     def upgrade(self, package, editable=False):
         package, install_args = self.resolve_package(package)
 
         venv_path = self.get_package_path(package)
-        if not os.path.isdir(venv_path):
-            click.echo('%s is not installed' % package)
+        if not self.check_package_installed(package, venv_path, echo=True):
             return
+
         info = self.get_package_info(venv_path)
 
         from subprocess import Popen

@@ -281,6 +281,9 @@ class Repo(object):
         return self.find_installed_executables(path)
 
     def link_scripts(self, scripts):
+        """Link venv script path to bin dir,
+        returns list of tuple of (venv script path, bin dir symlink path)
+        """
         rv = []
         for script in scripts:
             script_dst = os.path.join(
@@ -310,7 +313,7 @@ class Repo(object):
         o = {
             'name': package_name,
             'version': version,
-            'scripts': [script for target, script in scripts],
+            'scripts': scripts,
         }
         return o
 
@@ -394,7 +397,7 @@ class Repo(object):
         # And link them
         linked_scripts = self.link_scripts(scripts)
 
-        self.save_package_info(venv_path, package, linked_scripts)
+        self.save_package_info(venv_path, package, [i[1] for i in linked_scripts])
 
         # We did not link any, rollback.
         if not linked_scripts:
@@ -433,7 +436,7 @@ class Repo(object):
 
         scripts = find_scripts(venv_path, package)
         linked_scripts = self.link_scripts(scripts)
-        to_delete = old_scripts - set(script for target, script in linked_scripts)
+        to_delete = old_scripts - set(i[1] for i in linked_scripts)
 
         for script in to_delete:
             try:

@@ -213,6 +213,7 @@ def get_real_python(python):
 
 
 class Repo(object):
+    package_info_filename = 'package_info.json'
 
     def __init__(self, home, bin_dir):
         self.home = realpath(home)
@@ -290,22 +291,41 @@ class Repo(object):
         return rv
 
     def save_package_info(self, venv_path, package, scripts):
-        package_info_file_path = join(venv_path, 'package_info.json')
+        filepath = join(venv_path, self.package_info_filename)
+
+        o = self.make_package_info(venv_path, package, scripts)
+        with open(filepath, 'w') as fh:
+            json.dump(o, fh)
+
+    # TODO use a class to handle read/write about package_info
+    def make_package_info(self, venv_path, package=None, scripts=None):
+        """Make package_info dict from scratch
+        """
+        if package is None:
+            package = os.path.basename(venv_path)
         package_name = Requirement.parse(package).project_name
         version = extract_package_version(venv_path, package_name)
-
-        package_info = {
+        if scripts is None:
+            scripts = list(self.find_installed_executables(venv_path))
+        o = {
             'name': package_name,
             'version': version,
             'scripts': [script for target, script in scripts],
         }
-        with open(package_info_file_path, 'w') as fh:
-            json.dump(package_info, fh)
+        return o
 
     def get_package_info(self, venv_path):
-        package_info_file_path = join(venv_path, 'package_info.json')
-        with open(package_info_file_path, 'r') as fh:
-            return json.load(fh)
+        """Get dict from json file `package_info.json` under venv
+
+        if the file does not exist, get the result from `make_package_info`
+        raises ValueError if the file content cannot be parsed to json.
+        """
+        filepath = join(venv_path, self.package_info_filename)
+        if os.path.exists(filepath) and os.path.isfile(filepath):
+            with open(filepath, 'r') as fh:
+                return json.load(fh)
+        else:
+            return self.make_package_info(venv_path)
 
     def install(self, package, python=None, editable=False, system_site_packages=False):
         # `python` could be int as major version, or str as absolute bin path,
@@ -435,10 +455,7 @@ class Repo(object):
                 if os.path.isdir(venv_path) and \
                    os.path.isfile(venv_path + python):
                     info = self.get_package_info(venv_path)
-                    version = None
-                    if versions:
-                        version = info.get('version')
-                    venvs[venv] = [info.get('scripts', []), version]
+                    venvs[venv] = [info.get('scripts', []), info.get('version')]
 
         return sorted(venvs.items())
 

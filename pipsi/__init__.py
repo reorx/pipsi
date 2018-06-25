@@ -266,20 +266,6 @@ class Repo(object):
         except OSError:
             pass
 
-    def get_package_scripts(self, path):
-        """Get the scripts installed for PATH
-
-        Looks for package metadata listing which scripts were
-        installed. If there is no metadata (package was installed
-         with an older version of pipsi) then fall back to the old
-         find_installed_executables method.
-        """
-        info = self.get_package_info(path)
-        if 'scripts' in info:
-            return info['scripts']
-        # No script metadata - fall back to older method of searching for executables
-        return self.find_installed_executables(path)
-
     def link_scripts(self, scripts):
         """Link venv script path to bin dir,
         returns list of tuple of (venv script path, bin dir symlink path)
@@ -407,10 +393,11 @@ class Repo(object):
 
     def uninstall(self, package):
         path = self.get_package_path(package)
+        info = self.get_package_info(path)
         if not os.path.isdir(path):
             return UninstallInfo(package, installed=False)
         paths = [path]
-        paths.extend(self.get_package_scripts(path))
+        paths.extend(info.get('scripts', []))
         return UninstallInfo(package, paths)
 
     def upgrade(self, package, editable=False):
@@ -420,10 +407,11 @@ class Repo(object):
         if not os.path.isdir(venv_path):
             click.echo('%s is not installed' % package)
             return
+        info = self.get_package_info(venv_path)
 
         from subprocess import Popen
 
-        old_scripts = set(self.get_package_scripts(venv_path))
+        old_scripts = set(info.get('scripts', []))
 
         args = [os.path.join(venv_path, BIN_DIR, 'python'), '-m', 'pip', 'install',
                 '--upgrade']

@@ -7,7 +7,6 @@ import shutil
 import subprocess
 import glob
 from collections import namedtuple
-from os.path import join, realpath, dirname, normpath, normcase
 from operator import methodcaller
 import distutils.spawn
 import re
@@ -77,7 +76,11 @@ def normalize_package(value):
 
 
 def normalize_path(path):
-    return normcase(normpath(realpath(path)))
+    return os.path.normcase(norm_real_path(path))
+
+
+def norm_real_path(path):
+    return os.path.normpath(os.path.realpath(path))
 
 
 def real_readlink(filename):
@@ -85,7 +88,7 @@ def real_readlink(filename):
         target = os.readlink(filename)
     except (OSError, IOError, AttributeError):
         return None
-    return normpath(realpath(join(dirname(filename), target)))
+    return norm_real_path(os.path.join(os.path.dirname(filename), target))
 
 
 def publish_script(src, dst):
@@ -112,19 +115,19 @@ def publish_script(src, dst):
 
 
 def extract_package_version(virtualenv, package):
-    prefix = normalize_path(join(virtualenv, BIN_DIR, ''))
+    prefix = normalize_path(os.path.join(virtualenv, BIN_DIR, ''))
 
     return run([
-        join(prefix, 'python'), '-c', GET_VERSION_SCRIPT,
+        os.path.join(prefix, 'python'), '-c', GET_VERSION_SCRIPT,
         package,
     ]).stdout.strip()
 
 
 def find_scripts(virtualenv, package):
-    prefix = normalize_path(join(virtualenv, BIN_DIR, ''))
+    prefix = normalize_path(os.path.join(virtualenv, BIN_DIR, ''))
 
     files = run([
-        join(prefix, 'python'), '-c', FIND_SCRIPTS_SCRIPT,
+        os.path.join(prefix, 'python'), '-c', FIND_SCRIPTS_SCRIPT,
         package, prefix
     ]).stdout.splitlines()
 
@@ -258,7 +261,7 @@ class Repo(object):
     package_info_filename = 'package_info.json'
 
     def __init__(self, home, bin_dir):
-        self.home = realpath(home)
+        self.home = os.path.realpath(home)
         self.bin_dir = bin_dir
 
     def resolve_package(self, spec, python=None):
@@ -276,7 +279,7 @@ class Repo(object):
         else:
             return spec, [spec]
 
-        if not os.path.exists(join(location, 'setup.py')):
+        if not os.path.exists(os.path.join(location, 'setup.py')):
             raise click.UsageError('%s does not appear to be a local '
                                    'Python package.' % spec)
 
@@ -294,10 +297,10 @@ class Repo(object):
 
     def get_package_path(self, package):
         package_name = normalize_package(package)
-        return join(self.home, package_name), package_name
+        return os.path.join(self.home, package_name), package_name
 
     def find_installed_executables(self, venv_path):
-        prefix = join(realpath(normpath(venv_path)), '')
+        prefix = os.path.join(norm_real_path(venv_path), '')
         try:
             for filename in os.listdir(self.bin_dir):
                 exe = os.path.join(self.bin_dir, filename)
@@ -323,7 +326,7 @@ class Repo(object):
         return rv
 
     def save_package_info(self, venv_path, package_name, scripts):
-        filepath = join(venv_path, self.package_info_filename)
+        filepath = os.path.join(venv_path, self.package_info_filename)
 
         o = PackageInfo.create_from_venv_path(venv_path, package_name, scripts)
         with open(filepath, 'w') as f:
@@ -336,7 +339,7 @@ class Repo(object):
         if the file does not exist, get the result from `PackageInfo.create_from_venv_path`
         raises ValueError if the file content cannot be parsed to json.
         """
-        filepath = join(venv_path, self.package_info_filename)
+        filepath = os.path.join(venv_path, self.package_info_filename)
         if os.path.exists(filepath) and os.path.isfile(filepath):
             with open(filepath, 'r') as f:
                 return PackageInfo.create_from_json(f.read())

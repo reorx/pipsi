@@ -251,7 +251,8 @@ class Repo(object):
         return name, [location]
 
     def get_package_path(self, package):
-        return join(self.home, normalize_package(package))
+        package_name = normalize_package(package)
+        return join(self.home, package_name), package_name
 
     def find_installed_executables(self, path):
         prefix = join(realpath(normpath(path)), '')
@@ -331,7 +332,8 @@ class Repo(object):
 
         package, install_args = self.resolve_package(package, python)
 
-        venv_path = self.get_package_path(package)
+        # use package_name for the lower cased name afterwards
+        venv_path, package_name = self.get_package_path(package)
         if os.path.isdir(venv_path):
             click.echo('%s is already installed' % package)
             return
@@ -399,7 +401,7 @@ class Repo(object):
         return True
 
     def uninstall(self, package):
-        path = self.get_package_path(package)
+        path, _ = self.get_package_path(package)
         if not self.check_package_installed(package, path):
             return UninstallInfo(package, installed=False)
 
@@ -410,7 +412,7 @@ class Repo(object):
     def upgrade(self, package, editable=False):
         package, install_args = self.resolve_package(package)
 
-        venv_path = self.get_package_path(package)
+        venv_path, _ = self.get_package_path(package)
         if not self.check_package_installed(package, venv_path, echo=True):
             return
 

@@ -70,10 +70,10 @@ def test_simple_install_attic(repo, home, bin):
     test_simple_install(repo, home, bin, 'attic', 'attic*')
 
 
-def test_list_everything(repo, home, bin):
+def test_list_package_infos(repo, home, bin):
     assert not home.listdir()
     assert not bin.listdir()
-    assert repo.list_everything() == []
+    assert repo.list_package_infos() == []
 
 
 def test_find_scripts():

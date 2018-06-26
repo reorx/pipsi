@@ -6,7 +6,7 @@ import sys
 import shutil
 import subprocess
 import glob
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 from operator import methodcaller
 import distutils.spawn
 import re
@@ -481,8 +481,12 @@ class Repo(object):
 
         return True
 
-    def list_everything(self, versions=False):
-        venvs = {}
+    def list_package_infos(self, versions=False, ignore_no_scripts=False):
+        """
+        :return: an ordered dict of PackageInfo instances
+        :rtype: OrderedDict
+        """
+        infos = []
         python = '/Scripts/python.exe' if IS_WIN else '/bin/python'
         if os.path.isdir(self.home):
             for venv in os.listdir(self.home):
@@ -490,9 +494,11 @@ class Repo(object):
                 if os.path.isdir(venv_path) and \
                    os.path.isfile(venv_path + python):
                     info = self.get_package_info(venv_path)
-                    venvs[venv] = [info.scripts, info.version]
+                    if not info.scripts and ignore_no_scripts:
+                        continue
+                    infos.append(info)
 
-        return sorted(venvs.items())
+        return sorted(infos, key=lambda x: x.name)
 
 
 @click.group(context_settings=CONTEXT_SETTINGS)
@@ -589,17 +595,15 @@ def uninstall(repo, package, yes):
 @click.pass_obj
 def list_cmd(repo, versions):
     """Lists all scripts installed through pipsi."""
-    list_of_non_empty_venv = [(venv, scripts)
-                              for venv, scripts in repo.list_everything()
-                              if scripts]
-    if list_of_non_empty_venv:
+    infos_with_scripts = repo.list_package_infos(ignore_no_scripts=True)
+    if infos_with_scripts:
         click.echo('Packages and scripts installed through pipsi:')
-        for venv, (scripts, version) in list_of_non_empty_venv:
+        for info in infos_with_scripts:
             if versions:
-                click.echo('  Package "%s" (%s):' % (venv, version or 'unknown'))
+                click.echo('  Package "{}" ({}):'.format(info.name, info.version or 'unknown'))
             else:
-                click.echo('  Package "%s":' % venv)
-            for script in scripts:
+                click.echo('  Package "{}":'.format(info.name))
+            for script in info.scripts:
                 click.echo('    ' + script)
     else:
         click.echo('There are no scripts installed through pipsi')

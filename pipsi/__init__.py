@@ -370,7 +370,7 @@ class Repo(object):
         # use package_name for the lower cased name afterwards
         venv_path, package_name = self.get_package_path(package)
         if os.path.isdir(venv_path):
-            click.echo('%s is already installed' % package)
+            click.echo('%s is already installed' % package_name)
             return
 
         if not os.path.exists(self.bin_dir):
@@ -438,7 +438,7 @@ class Repo(object):
     def uninstall(self, package):
         venv_path, package_name = self.get_package_path(package)
         if not self.check_package_installed(package, venv_path):
-            return UninstallInfo(package, installed=False)
+            return UninstallInfo(package_name, installed=False)
 
         info = self.get_package_info(venv_path, package_name)
         paths = [venv_path] + info.scripts
@@ -575,7 +575,7 @@ def uninstall(repo, package, yes):
         for path in uinfo.paths:
             click.echo('  %s' % click.format_filename(path))
         click.echo()
-        if yes or click.confirm('Do you want to uninstall %s?' % package):
+        if yes or click.confirm('Do you want to uninstall %s?' % uinfo.package):
             uinfo.perform()
             click.echo('Done!')
         else:

@@ -296,8 +296,8 @@ class Repo(object):
         package_name = normalize_package(package)
         return join(self.home, package_name), package_name
 
-    def find_installed_executables(self, path):
-        prefix = join(realpath(normpath(path)), '')
+    def find_installed_executables(self, venv_path):
+        prefix = join(realpath(normpath(venv_path)), '')
         try:
             for filename in os.listdir(self.bin_dir):
                 exe = os.path.join(self.bin_dir, filename)
@@ -433,12 +433,12 @@ class Repo(object):
         return True
 
     def uninstall(self, package):
-        path, package_name = self.get_package_path(package)
-        if not self.check_package_installed(package, path):
+        venv_path, package_name = self.get_package_path(package)
+        if not self.check_package_installed(package, venv_path):
             return UninstallInfo(package, installed=False)
 
-        info = self.get_package_info(path, package_name)
-        paths = [path] + info.scripts
+        info = self.get_package_info(venv_path, package_name)
+        paths = [venv_path] + info.scripts
         return UninstallInfo(info.name, paths)
 
     def upgrade(self, package, editable=False):

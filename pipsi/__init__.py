@@ -212,6 +212,48 @@ def get_real_python(python):
     raise ValueError('Can not find real python under {}'.format(real_prefix))
 
 
+class PackageInfo(object):
+    name = None
+    version = None
+    scripts = []
+
+    class Keys:
+        name = 'name'
+        version = 'version'
+        scripts = 'scripts'
+
+    def __init__(self, name, version, scripts):
+        self.name = name
+        self.version = version
+        self.scripts = scripts
+
+    def to_json(self, **kwargs):
+        return json.dumps(self.to_dict(), **kwargs)
+
+    def to_dict(self):
+        return {
+            self.Keys.name: self.name,
+            self.Keys.version: self.version,
+            self.Keys.scripts: self.scripts,
+        }
+
+    @classmethod
+    def create_from_venv_path(cls, venv_path, package_name, scripts=None):
+        """Create PackageInfo instance from venv_path, this function should be used
+        when json file does not exist.
+        """
+        if scripts is None:
+            scripts = []
+        version = extract_package_version(venv_path, package_name)
+
+        return cls(package_name, version, scripts)
+
+    @classmethod
+    def create_from_json(cls, json_str):
+        d = json.loads(json_str)
+        return cls(d.get(cls.Keys.name), d.get(cls.Keys.version), d.get(cls.Keys.scripts, []))
+
+
 class Repo(object):
     package_info_filename = 'package_info.json'
 
@@ -280,44 +322,34 @@ class Repo(object):
 
         return rv
 
-    def save_package_info(self, venv_path, package, scripts):
+    def save_package_info(self, venv_path, package_name, scripts):
         filepath = join(venv_path, self.package_info_filename)
 
-        o = self.make_package_info(venv_path, package, scripts)
-        with open(filepath, 'w') as fh:
-            json.dump(o, fh)
+        o = PackageInfo.create_from_venv_path(venv_path, package_name, scripts)
+        with open(filepath, 'w') as f:
+            # append EOL
+            f.write(o.to_json() + '\n')
 
-    # TODO use a class to handle read/write about package_info
-    def make_package_info(self, venv_path, package=None, scripts=None):
-        """Make package_info dict from scratch
-        """
-        if package is None:
-            package = os.path.basename(venv_path)
-        package_name = Requirement.parse(package).project_name
-        version = extract_package_version(venv_path, package_name)
-        if scripts is None:
-            scripts = list(self.find_installed_executables(venv_path))
-        o = {
-            'name': package_name,
-            'version': version,
-            'scripts': scripts,
-        }
-        return o
-
-    def get_package_info(self, venv_path):
+    def get_package_info(self, venv_path, package_name=None):
         """Get dict from json file `package_info.json` under venv
 
-        if the file does not exist, get the result from `make_package_info`
+        if the file does not exist, get the result from `PackageInfo.create_from_venv_path`
         raises ValueError if the file content cannot be parsed to json.
         """
         filepath = join(venv_path, self.package_info_filename)
         if os.path.exists(filepath) and os.path.isfile(filepath):
-            with open(filepath, 'r') as fh:
-                return json.load(fh)
+            with open(filepath, 'r') as f:
+                return PackageInfo.create_from_json(f.read())
         else:
-            return self.make_package_info(venv_path)
+            if package_name is None:
+                package_name = os.path.basename(venv_path)
+            return PackageInfo.create_from_venv_path(
+                venv_path, package_name, scripts=list(self.find_installed_executables(venv_path)))
 
     def install(self, package, python=None, editable=False, system_site_packages=False):
+        """
+        :param str package: package spec, not necessarily the name of package
+        """
         # `python` could be int as major version, or str as absolute bin path,
         # if it's int, then we will try to find the executable `python2` or `python3` in PATH
         if isinstance(python, int):
@@ -385,7 +417,7 @@ class Repo(object):
         # And link them
         linked_scripts = self.link_scripts(scripts)
 
-        self.save_package_info(venv_path, package, [i[1] for i in linked_scripts])
+        self.save_package_info(venv_path, package_name, [i[1] for i in linked_scripts])
 
         # We did not link any, rollback.
         if not linked_scripts:
@@ -401,26 +433,26 @@ class Repo(object):
         return True
 
     def uninstall(self, package):
-        path, _ = self.get_package_path(package)
+        path, package_name = self.get_package_path(package)
         if not self.check_package_installed(package, path):
             return UninstallInfo(package, installed=False)
 
-        info = self.get_package_info(path)
-        paths = [path] + info.get('scripts', [])
-        return UninstallInfo(package, paths)
+        info = self.get_package_info(path, package_name)
+        paths = [path] + info.scripts
+        return UninstallInfo(info.name, paths)
 
     def upgrade(self, package, editable=False):
         package, install_args = self.resolve_package(package)
 
-        venv_path, _ = self.get_package_path(package)
+        venv_path, package_name = self.get_package_path(package)
         if not self.check_package_installed(package, venv_path, echo=True):
             return
 
-        info = self.get_package_info(venv_path)
+        info = self.get_package_info(venv_path, package_name)
 
         from subprocess import Popen
 
-        old_scripts = set(info.get('scripts', []))
+        old_scripts = set(info.scripts)
 
         args = [os.path.join(venv_path, BIN_DIR, 'python'), '-m', 'pip', 'install',
                 '--upgrade']
@@ -442,7 +474,7 @@ class Repo(object):
             except (IOError, OSError):
                 pass
 
-        self.save_package_info(venv_path, package, linked_scripts)
+        self.save_package_info(venv_path, package_name, linked_scripts)
 
         return True
 
@@ -455,7 +487,7 @@ class Repo(object):
                 if os.path.isdir(venv_path) and \
                    os.path.isfile(venv_path + python):
                     info = self.get_package_info(venv_path)
-                    venvs[venv] = [info.get('scripts', []), info.get('version')]
+                    venvs[venv] = [info.scripts, info.version]
 
         return sorted(venvs.items())
 
@@ -534,7 +566,7 @@ def uninstall(repo, package, yes):
     """
     uinfo = repo.uninstall(package)
     if not uinfo.installed:
-        click.echo('%s is not installed' % package)
+        click.echo('%s is not installed' % uinfo.package)
     else:
         click.echo('The following paths will be removed:')
         for path in uinfo.paths:

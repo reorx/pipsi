@@ -76,7 +76,7 @@ def normalize_package(value):
     return requirement.project_name.lower()
 
 
-def normalize(path):
+def normalize_path(path):
     return normcase(normpath(realpath(path)))
 
 
@@ -112,7 +112,7 @@ def publish_script(src, dst):
 
 
 def extract_package_version(virtualenv, package):
-    prefix = normalize(join(virtualenv, BIN_DIR, ''))
+    prefix = normalize_path(join(virtualenv, BIN_DIR, ''))
 
     return run([
         join(prefix, 'python'), '-c', GET_VERSION_SCRIPT,
@@ -121,14 +121,14 @@ def extract_package_version(virtualenv, package):
 
 
 def find_scripts(virtualenv, package):
-    prefix = normalize(join(virtualenv, BIN_DIR, ''))
+    prefix = normalize_path(join(virtualenv, BIN_DIR, ''))
 
     files = run([
         join(prefix, 'python'), '-c', FIND_SCRIPTS_SCRIPT,
         package, prefix
     ]).stdout.splitlines()
 
-    files = map(normalize, files)
+    files = map(normalize_path, files)
     files = filter(
         methodcaller('startswith', prefix),
         files,

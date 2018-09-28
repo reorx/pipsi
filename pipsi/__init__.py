@@ -6,7 +6,7 @@ import sys
 import shutil
 import subprocess
 import glob
-from collections import namedtuple, OrderedDict
+from collections import namedtuple, OrderedDict  # NOQA
 from operator import methodcaller
 import distutils.spawn
 import re
@@ -64,7 +64,7 @@ def debugp(*args):
 
 def proc_output(s):
     s = s.strip()
-    if  isinstance(s, bytes):
+    if isinstance(s, bytes):
         s = s.decode('utf-8', 'replace')
     return s
 
@@ -314,14 +314,14 @@ class Repo(object):
 
     def link_scripts(self, scripts):
         """Link venv script path to bin dir,
-        returns list of tuple of (venv script path, bin dir symlink path)
+        returns linked path (ln -s <script> <linked_path>)
         """
         rv = []
         for script in scripts:
             script_dst = os.path.join(
                 self.bin_dir, os.path.basename(script))
             if publish_script(script, script_dst):
-                rv.append((script, script_dst))
+                rv.append(script_dst)
 
         return rv
 
@@ -420,7 +420,7 @@ class Repo(object):
         # And link them
         linked_scripts = self.link_scripts(scripts)
 
-        self.save_package_info(venv_path, package_name, [i[1] for i in linked_scripts])
+        self.save_package_info(venv_path, package_name, linked_scripts)
 
         # We did not link any, rollback.
         if not linked_scripts:
@@ -468,7 +468,7 @@ class Repo(object):
 
         scripts = find_scripts(venv_path, package)
         linked_scripts = self.link_scripts(scripts)
-        to_delete = old_scripts - set(i[1] for i in linked_scripts)
+        to_delete = old_scripts - set(linked_scripts)
 
         for script in to_delete:
             try:
@@ -503,7 +503,7 @@ class Repo(object):
 
 @click.group(context_settings=CONTEXT_SETTINGS)
 @click.option(
-    '--home', type=click.Path(),envvar='PIPSI_HOME',
+    '--home', type=click.Path(), envvar='PIPSI_HOME',
     default=os.path.join(os.path.expanduser('~'), '.local', 'venvs'),
     help='The folder that contains the virtualenvs.')
 @click.option(
@@ -604,7 +604,7 @@ def list_cmd(repo, versions):
             else:
                 click.echo('  Package "{}":'.format(info.name))
             for script in info.scripts:
-                click.echo('    ' + script)
+                click.echo('    {}'.format(script))
     else:
         click.echo('There are no scripts installed through pipsi')
 

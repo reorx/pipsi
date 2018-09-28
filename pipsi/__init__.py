@@ -98,20 +98,22 @@ def publish_script(src, dst):
         click.echo('  Copied Executable ' + dst)
         return True
     else:
-        old_target = real_readlink(dst)
-        if old_target == src:
+        # skip if src and dst are already linked
+        if real_readlink(dst) == src:
             return True
-        try:
-            os.remove(dst)
-        except OSError:
-            pass
+        if os.path.islink(dst) or os.path.exists(dst):
+            try:
+                os.remove(dst)
+            except OSError as e:
+                print('remove link dest {} error: {}'.format(dst, e))
+                return False
         try:
             os.symlink(src, dst)
-        except OSError:
-            pass
-        else:
-            click.echo('  Linked script ' + dst)
-            return True
+        except OSError as e:
+            print('link {} to {} failed: {}'.format(src, dst, e))
+            return False
+        click.echo('  Linked script ' + dst)
+        return True
 
 
 def extract_package_version(virtualenv, package):
@@ -159,6 +161,10 @@ class UninstallInfo(object):
 
     def perform(self):
         for path in self.paths:
+            path_exists = os.path.islink(path) or os.path.exists(path)
+            if not path_exists:
+                debugp('path {} not exists, skip rm'.format(path))
+                continue
             try:
                 os.remove(path)
             except OSError:
@@ -442,6 +448,8 @@ class Repo(object):
 
         info = self.get_package_info(venv_path, package_name)
         paths = [venv_path] + info.scripts
+        # sort paths so that files would be prior to dirs
+        paths.sort(reverse=True)
         return UninstallInfo(info.name, paths)
 
     def upgrade(self, package, editable=False):
